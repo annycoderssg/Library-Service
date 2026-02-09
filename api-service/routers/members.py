@@ -201,6 +201,28 @@ def delete_member(member_id: int = Path(...), current_user: User = Depends(get_c
     if not db_member:
         raise HTTPException(status_code=404, detail="Member not found")
     
+    # Check for active borrowings (not returned)
+    active_borrowings = db.query(Borrowing).filter(
+        Borrowing.member_id == member_id,
+        Borrowing.return_date == None
+    ).count()
+    
+    if active_borrowings > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete member with {active_borrowings} active borrowing(s). Please return all books first."
+        )
+    
+    # Delete associated user account if exists
+    user = db.query(User).filter(User.member_id == member_id).first()
+    if user:
+        db.delete(user)
+    
+    # Set member_id to NULL for returned borrowings (historical records)
+    db.query(Borrowing).filter(Borrowing.member_id == member_id).update(
+        {"member_id": None}, synchronize_session=False
+    )
+    
     db.delete(db_member)
     db.commit()
     return None
