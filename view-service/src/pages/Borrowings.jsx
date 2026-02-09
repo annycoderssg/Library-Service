@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { borrowingsAPI, booksAPI, membersAPI } from '../api'
 import ConfirmModal from '../components/ConfirmModal'
-import { 
-  Calendar, Search, Plus, RotateCcw, Trash2, 
-  ChevronLeft, ChevronRight, X, Check, AlertCircle, 
-  Clock, BookOpen 
+import {
+  Calendar, Search, Plus, RotateCcw, Trash2,
+  ChevronLeft, ChevronRight, X, Check, AlertCircle,
+  Clock, BookOpen
 } from 'lucide-react'
 
 export default function Borrowings() {
@@ -40,21 +40,21 @@ export default function Borrowings() {
   const loadBorrowings = async () => {
     setLoading(true)
     try {
+      const skip = (currentPage - 1) * itemsPerPage
       const params = {
-        page: currentPage,
+        skip: skip,
         limit: itemsPerPage,
         ...(searchTerm && { search: searchTerm })
       }
       const response = await borrowingsAPI.getAll(params)
       const data = response.data
-      
-      if (Array.isArray(data)) {
-        setBorrowings(data)
-        setTotalPages(Math.ceil(data.length / itemsPerPage) || 1)
-      } else {
-        setBorrowings(data.items || data.borrowings || [])
-        setTotalPages(data.total_pages || Math.ceil((data.total || 0) / itemsPerPage) || 1)
-      }
+
+      // Handle paginated response { items: [], total: N }
+      const items = data.items || data.borrowings || (Array.isArray(data) ? data : [])
+      const total = data.total || items.length
+
+      setBorrowings(items)
+      setTotalPages(Math.ceil(total / itemsPerPage) || 1)
     } catch (error) {
       console.error('Failed to load borrowings:', error)
       setError('Failed to load borrowings')
@@ -84,7 +84,7 @@ export default function Borrowings() {
   const openAddModal = () => {
     const defaultDueDate = new Date()
     defaultDueDate.setDate(defaultDueDate.getDate() + 14)
-    
+
     setFormData({
       book_id: '',
       member_id: '',
@@ -96,7 +96,7 @@ export default function Borrowings() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    
+
     try {
       await borrowingsAPI.create(formData)
       setSuccess('Book borrowed successfully')
@@ -238,18 +238,18 @@ export default function Borrowings() {
                       <div className="table-actions">
                         {/* Members can return their own books, admins can return any book */}
                         {!borrowing.return_date && (isAdmin || borrowing.member_id === user?.member_id) && (
-                          <button 
-                            className="btn-icon btn-success" 
-                            onClick={() => handleReturn(borrowing)} 
+                          <button
+                            className="btn-icon btn-success"
+                            onClick={() => handleReturn(borrowing)}
                             title="Mark as Returned"
                           >
                             <RotateCcw size={16} />
                           </button>
                         )}
                         {isAdmin && (
-                          <button 
-                            className="btn-icon btn-danger" 
-                            onClick={() => handleDelete(borrowing)} 
+                          <button
+                            className="btn-icon btn-danger"
+                            onClick={() => handleDelete(borrowing)}
                             title="Delete"
                           >
                             <Trash2 size={16} />
@@ -265,15 +265,15 @@ export default function Borrowings() {
 
           {totalPages > 1 && (
             <div className="pagination">
-              <button 
-                className="btn-icon" 
+              <button
+                className="btn-icon"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
                 <ChevronLeft size={20} />
               </button>
               <span>Page {currentPage} of {totalPages}</span>
-              <button 
+              <button
                 className="btn-icon"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
@@ -299,7 +299,7 @@ export default function Borrowings() {
                 <label>Book *</label>
                 <select
                   value={formData.book_id}
-                  onChange={(e) => setFormData({...formData, book_id: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, book_id: e.target.value })}
                   required
                 >
                   <option value="">Select a book</option>
@@ -314,7 +314,7 @@ export default function Borrowings() {
                 <label>Member *</label>
                 <select
                   value={formData.member_id}
-                  onChange={(e) => setFormData({...formData, member_id: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, member_id: e.target.value })}
                   required
                 >
                   <option value="">Select a member</option>
@@ -330,7 +330,7 @@ export default function Borrowings() {
                 <input
                   type="date"
                   value={formData.due_date}
-                  onChange={(e) => setFormData({...formData, due_date: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
                   required
                 />

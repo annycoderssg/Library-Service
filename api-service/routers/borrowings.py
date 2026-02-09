@@ -14,10 +14,11 @@ router = APIRouter(prefix="/api/borrowings", tags=["Borrowings"])
 @router.get("")
 def get_borrowings(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 10,
     status_filter: Optional[str] = None,
     member_id: Optional[int] = None,
     book_id: Optional[int] = None,
+    search: Optional[str] = None,
     current_user: User = Depends(get_current_member),
     db: Session = Depends(get_read_db)
 ):
@@ -33,7 +34,7 @@ def get_borrowings(
             query = query.filter(Borrowing.member_id == current_user.member_id)
         else:
             # Member without member_id sees nothing
-            return []
+            return {"items": [], "total": 0, "skip": skip, "limit": limit}
     else:
         # Admins can filter by member_id if provided
         if member_id:
@@ -51,8 +52,25 @@ def get_borrowings(
     if book_id:
         query = query.filter(Borrowing.book_id == book_id)
     
-    borrowings = query.offset(skip).limit(limit).all()
-    return borrowings
+    # Search by book title or member name
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            Borrowing.book.has(Book.title.ilike(search_pattern)) |
+            Borrowing.member.has(Member.name.ilike(search_pattern))
+        )
+    
+    # Get total count before pagination
+    total = query.count()
+    
+    borrowings = query.order_by(Borrowing.id.desc()).offset(skip).limit(limit).all()
+    
+    return {
+        "items": borrowings,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 @router.get("/{borrowing_id}", response_model=BorrowingDetailResponse)

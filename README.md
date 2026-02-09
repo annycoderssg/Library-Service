@@ -1,6 +1,23 @@
 # Neighborhood Library Service
 
-A full-stack library management system built with FastAPI (Python) and React (Vite). This application provides a REST API for managing books, members, borrowings, and testimonials with role-based authentication (admin/member).
+A small neighborhood library wants a new App to manage its members, books, and lending operations.
+
+## 🛠️ Technology Stack
+
+This service is built using:
+- **Python** for the server implementation (FastAPI)
+- **REST API** for the service interface
+- **PostgreSQL** as the data store
+- **React (Vite)** for the frontend
+
+## ✨ Features
+
+- **Books Management** - Add, update, delete, and search books
+- **Members Management** - Register and manage library members
+- **Borrowing System** - Track book borrowings and returns
+- **Dashboard** - View library statistics and recent activities
+- **Role-Based Access** - Admin and Member roles with different permissions
+- **JWT Authentication** - Secure token-based authentication
 
 ## 📋 Table of Contents
 
@@ -27,28 +44,43 @@ Before you begin, ensure you have the following installed:
 ## Project Structure
 
 ```
-ProjectAssignment/
-├── api-service/          # FastAPI backend
-│   ├── main.py          # FastAPI application entry point
-│   ├── database.py      # Database connection management
-│   ├── auth.py          # JWT authentication
-│   ├── models/          # SQLAlchemy models
-│   ├── routers/         # API route handlers
-│   ├── schemas.py       # Pydantic schemas
-│   ├── requirements.txt # Python dependencies
-│   ├── schema.sql       # Database schema (PostgreSQL)
-│   ├── setup_database.sh # Database setup script
-│   ├── create_tables.py # Table creation script
-│   ├── create_admin.py  # Admin user creation script
-│   └── .env            # Environment variables (create from template)
+Library-Service/
+├── api-service/              # FastAPI backend (Python)
+│   ├── main.py              # FastAPI application entry point
+│   ├── database.py          # Database connection management
+│   ├── auth.py              # JWT authentication
+│   ├── models/              # SQLAlchemy models
+│   │   ├── book.py          # Book model
+│   │   ├── member.py        # Member model
+│   │   ├── borrowing.py     # Borrowing model
+│   │   └── user.py          # User model
+│   ├── routers/             # API route handlers
+│   │   ├── books.py         # Books endpoints
+│   │   ├── members.py       # Members endpoints
+│   │   ├── borrowings.py    # Borrowings endpoints
+│   │   ├── auth.py          # Auth endpoints
+│   │   └── dashboard.py     # Dashboard endpoints
+│   ├── schemas.py           # Pydantic schemas
+│   ├── requirements.txt     # Python dependencies
+│   ├── schema.sql           # Database schema (PostgreSQL)
+│   ├── setup_database.sh    # Database setup script
+│   ├── create_tables.py     # Table creation script
+│   ├── create_admin.py      # Admin user creation script
+│   └── .env                 # Environment variables
 │
-└── view-service/        # React frontend
-    ├── src/
-    │   ├── components/  # React components
-    │   ├── api.js       # API client configuration
-    │   └── App.jsx      # Main application component
-    ├── package.json     # Node.js dependencies
-    └── .env            # Frontend environment variables
+├── view-service/            # React frontend (Vite)
+│   ├── src/
+│   │   ├── components/      # Reusable components
+│   │   ├── context/         # React Context (Auth)
+│   │   ├── pages/           # Page components
+│   │   ├── styles/          # CSS styles
+│   │   ├── api.js           # API client configuration
+│   │   └── App.jsx          # Main application
+│   ├── package.json         # Node.js dependencies
+│   ├── vite.config.js       # Vite configuration
+│   └── .env                 # Frontend environment variables
+│
+└── README.md                # Project documentation
 ```
 
 ## Database Setup
