@@ -26,13 +26,17 @@ from models import Borrowing, Member, Book
 
 load_dotenv()
 
-# Email configuration
+# Email configuration (from .env)
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 FROM_NAME = os.getenv("FROM_NAME", "Neighborhood Library")
+
+# Reminder settings (from .env)
+REMINDER_DAYS_AHEAD = int(os.getenv("REMINDER_DAYS_AHEAD", "1"))
+FINE_PER_DAY = float(os.getenv("FINE_PER_DAY", "1.0"))
 
 
 def send_email(to_email: str, subject: str, body: str):
@@ -141,8 +145,8 @@ def send_reminders():
     db: Session = ReadSessionLocal()
     
     try:
-        # Get due soon borrowings (due in 1 day)
-        due_soon = get_due_soon_borrowings(db, days_ahead=1)
+        # Get due soon borrowings (configurable via REMINDER_DAYS_AHEAD)
+        due_soon = get_due_soon_borrowings(db, days_ahead=REMINDER_DAYS_AHEAD)
         print(f"Found {len(due_soon)} books due soon")
         
         for borrowing in due_soon:
