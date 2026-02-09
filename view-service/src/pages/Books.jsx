@@ -30,7 +30,7 @@ export default function Books() {
     const [borrowedBookIds, setBorrowedBookIds] = useState([])
 
     const isAdmin = user?.role === 'admin'
-    const itemsPerPage = 10
+    const itemsPerPage = parseInt(import.meta.env.VITE_ITEMS_PER_PAGE) || 10
 
     useEffect(() => {
         loadBooks()
@@ -115,7 +115,7 @@ export default function Books() {
         setError('')
 
         try {
-            // Map frontend field names to backend field names
+            // Map frontend 'quantity' to backend 'total_copies'
             const apiData = {
                 title: formData.title,
                 author: formData.author,
@@ -129,6 +129,8 @@ export default function Books() {
                 await booksAPI.update(editingBook.id, apiData)
                 setSuccess('Book updated successfully')
             } else {
+                // For new books, available_copies = total_copies
+                apiData.available_copies = formData.quantity
                 await booksAPI.create(apiData)
                 setSuccess('Book added successfully')
             }
@@ -245,16 +247,23 @@ export default function Books() {
                                     <p className="book-author">by {book.author}</p>
                                     {book.category && <span className="book-category">{book.category}</span>}
                                     <div className="book-meta">
-                                        <span className={`availability ${(book.available_copies || book.available_quantity) > 0 ? 'available' : 'unavailable'}`}>
-                                            {(book.available_copies || book.available_quantity) > 0
-                                                ? `${book.available_copies || book.available_quantity} available`
-                                                : 'Not available'}
-                                        </span>
+                                        {(() => {
+                                            const totalCopies = book.total_copies || 1
+                                            const borrowedCount = book.borrowing_count || 0
+                                            const remaining = totalCopies - borrowedCount
+                                            return (
+                                                <span className={`availability ${remaining > 0 ? 'available' : 'unavailable'}`}>
+                                                    {remaining > 0
+                                                        ? `${remaining}/${totalCopies} Available`
+                                                        : 'Not Available'}
+                                                </span>
+                                            )
+                                        })()}
                                     </div>
                                 </div>
                                 <div className="book-actions">
                                     {/* Borrow button for members when book is available */}
-                                    {!isAdmin && (book.available_copies || book.available_quantity) > 0 && (
+                                    {!isAdmin && ((book.total_copies || 1) - (book.borrowing_count || 0)) > 0 && (
                                         <button
                                             className={`btn btn-sm ${isBookBorrowed(book.id) ? 'btn-disabled' : 'btn-primary'}`}
                                             onClick={() => !isBookBorrowed(book.id) && handleBorrow(book)}

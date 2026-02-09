@@ -28,7 +28,7 @@ export default function Borrowings() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'warning' })
 
   const isAdmin = user?.role === 'admin'
-  const itemsPerPage = 10
+  const itemsPerPage = parseInt(import.meta.env.VITE_ITEMS_PER_PAGE) || 10
 
   useEffect(() => {
     loadBorrowings()

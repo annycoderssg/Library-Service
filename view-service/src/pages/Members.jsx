@@ -24,7 +24,7 @@ export default function Members() {
   const [success, setSuccess] = useState('')
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null })
 
-  const itemsPerPage = 10
+  const itemsPerPage = parseInt(import.meta.env.VITE_ITEMS_PER_PAGE) || 10
 
   useEffect(() => {
     loadMembers()

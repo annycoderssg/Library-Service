@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 
 from database import get_read_db, get_write_db
-from models import Book, User
+from models import Book, User, Borrowing
 from schemas import BookCreate, BookUpdate, BookResponse
 from auth import get_current_admin
 
@@ -18,22 +18,76 @@ router = APIRouter(prefix="/api/books", tags=["Books"])
 # Pagination constants from environment
 DEFAULT_BOOKS_PER_PAGE = int(os.getenv("DEFAULT_BOOKS_PER_PAGE"))
 
+class BookWithBorrowingCount(BaseModel):
+    id: int
+    title: str
+    author: str
+    isbn: Optional[str] = None
+    published_year: Optional[int] = None
+    total_copies: int
+    available_copies: int
+    borrowing_count: int  # Active borrowings count
+    
+    class Config:
+        from_attributes = True
+
 class PaginatedBooksResponse(BaseModel):
-    items: List[BookResponse]
+    items: List[Dict[str, Any]]
     total: int
     skip: int
     limit: int
 
 
 @router.get("", response_model=PaginatedBooksResponse)
-def get_books(skip: int = 0, limit: int = None, db: Session = Depends(get_read_db)):
-    """Get all books with pagination"""
+def get_books(skip: int = 0, limit: int = None, search: Optional[str] = None, page: int = None, db: Session = Depends(get_read_db)):
+    """Get all books with pagination, search and borrowing count"""
     if limit is None:
         limit = DEFAULT_BOOKS_PER_PAGE
-    total = db.query(func.count(Book.id)).scalar()
-    books = db.query(Book).offset(skip).limit(limit).all()
+    
+    # Handle page parameter (convert to skip)
+    if page is not None and page > 0:
+        skip = (page - 1) * limit
+    
+    # Build base query
+    query = db.query(Book)
+    
+    # Apply search filter if provided
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Book.title.ilike(search_term)) |
+            (Book.author.ilike(search_term)) |
+            (Book.isbn.ilike(search_term))
+        )
+    
+    total = query.count()
+    books = query.offset(skip).limit(limit).all()
+    
+    # Add borrowing count to each book
+    result = []
+    for book in books:
+        # Get active borrowings count (not returned)
+        borrowing_count = db.query(func.count(Borrowing.id)).filter(
+            Borrowing.book_id == book.id,
+            Borrowing.return_date.is_(None)
+        ).scalar() or 0
+        
+        book_dict = {
+            "id": book.id,
+            "title": book.title,
+            "author": book.author,
+            "isbn": book.isbn,
+            "published_year": book.published_year,
+            "total_copies": book.total_copies,
+            "available_copies": book.available_copies,
+            "borrowing_count": borrowing_count,
+            "created_at": book.created_at,
+            "updated_at": book.updated_at
+        }
+        result.append(book_dict)
+    
     return {
-        "items": books,
+        "items": result,
         "total": total,
         "skip": skip,
         "limit": limit
@@ -58,7 +112,11 @@ def create_book(book: BookCreate, current_user: User = Depends(get_current_admin
         if existing_book:
             raise HTTPException(status_code=400, detail="Book with this ISBN already exists")
     
-    db_book = Book(**book.dict())
+    book_data = book.dict()
+    # Set available_copies equal to total_copies for new books
+    book_data['available_copies'] = book_data.get('total_copies', 1)
+    
+    db_book = Book(**book_data)
     db.add(db_book)
     db.commit()
     db.refresh(db_book)
@@ -80,13 +138,25 @@ def update_book(book_id: int = Path(...), book_update: BookUpdate = ..., current
     
     # Update fields
     update_data = book_update.dict(exclude_unset=True)
+    
+    # Get actual active borrowings count (not returned books)
+    active_borrowings_count = db.query(func.count(Borrowing.id)).filter(
+        Borrowing.book_id == book_id,
+        Borrowing.return_date.is_(None)  # Only count books that haven't been returned
+    ).scalar() or 0
+    
     for field, value in update_data.items():
         setattr(db_book, field, value)
     
+    # Update available_copies when total_copies changes
+    if 'total_copies' in update_data:
+        new_total = update_data['total_copies']
+        # available = new_total - active_borrowings (not returned)
+        db_book.available_copies = max(0, new_total - active_borrowings_count)
+    
     # Ensure available_copies doesn't exceed total_copies
-    if 'total_copies' in update_data or 'available_copies' in update_data:
-        if db_book.available_copies > db_book.total_copies:
-            db_book.available_copies = db_book.total_copies
+    if db_book.available_copies > db_book.total_copies:
+        db_book.available_copies = db_book.total_copies
     
     db.commit()
     db.refresh(db_book)
