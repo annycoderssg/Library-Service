@@ -15,6 +15,7 @@ export default function Borrowings() {
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [showModal, setShowModal] = useState(false)
@@ -35,7 +36,7 @@ export default function Borrowings() {
     if (isAdmin) {
       loadBooksAndMembers()
     }
-  }, [currentPage, searchTerm])
+  }, [currentPage, searchTerm, statusFilter])
 
   const loadBorrowings = async () => {
     setLoading(true)
@@ -44,7 +45,8 @@ export default function Borrowings() {
       const params = {
         skip: skip,
         limit: itemsPerPage,
-        ...(searchTerm && { search: searchTerm })
+        ...(searchTerm && { search: searchTerm }),
+        ...(statusFilter && { status_filter: statusFilter })
       }
       const response = await borrowingsAPI.getAll(params)
       const data = response.data
@@ -78,6 +80,11 @@ export default function Borrowings() {
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value)
+    setCurrentPage(1)
+  }
+
+  const handleStatusFilter = (e) => {
+    setStatusFilter(e.target.value)
     setCurrentPage(1)
   }
 
@@ -186,14 +193,24 @@ export default function Borrowings() {
         </div>
       )}
 
-      <div className="search-bar">
-        <Search size={20} />
-        <input
-          type="text"
-          placeholder="Search by book title or member name..."
-          value={searchTerm}
-          onChange={handleSearch}
-        />
+      <div className="filters-row">
+        <div className="search-bar">
+          <Search size={20} />
+          <input
+            type="text"
+            placeholder="Search by book title or member name..."
+            value={searchTerm}
+            onChange={handleSearch}
+          />
+        </div>
+        <div className="status-filter">
+          <select value={statusFilter} onChange={handleStatusFilter}>
+            <option value="">All Status</option>
+            <option value="borrowed">Borrowed</option>
+            <option value="returned">Returned</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (

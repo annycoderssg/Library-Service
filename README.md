@@ -14,10 +14,12 @@ This service is built using:
 
 - **Books Management** - Add, update, delete, and search books
 - **Members Management** - Register and manage library members
-- **Borrowing System** - Track book borrowings and returns
+- **Borrowing System** - Track book borrowings and returns with status filtering
 - **Dashboard** - View library statistics and recent activities
 - **Role-Based Access** - Admin and Member roles with different permissions
 - **JWT Authentication** - Secure token-based authentication
+- **Email Reminders** - Automated email notifications for due/overdue books (cron job)
+- **Pagination & Search** - All listings support pagination and search
 
 ## 📋 Table of Contents
 
@@ -62,11 +64,13 @@ Library-Service/
 │   │   └── dashboard.py     # Dashboard endpoints
 │   ├── schemas.py           # Pydantic schemas
 │   ├── requirements.txt     # Python dependencies
-│   ├── schema.sql           # Database schema (PostgreSQL)
+│   ├── schema.sql           # Database schema + sample data
 │   ├── setup_database.sh    # Database setup script
 │   ├── create_tables.py     # Table creation script
 │   ├── create_admin.py      # Admin user creation script
-│   └── .env                 # Environment variables
+│   ├── email_reminder.py    # Cron job for email reminders
+│   ├── .env                 # Environment variables
+│   └── .env.example         # Environment template
 │
 ├── view-service/            # React frontend (Vite)
 │   ├── src/
@@ -78,7 +82,8 @@ Library-Service/
 │   │   └── App.jsx          # Main application
 │   ├── package.json         # Node.js dependencies
 │   ├── vite.config.js       # Vite configuration
-│   └── .env                 # Frontend environment variables
+│   ├── .env                 # Frontend environment variables
+│   └── .env.example         # Environment template
 │
 └── README.md                # Project documentation
 ```
@@ -359,9 +364,42 @@ python create_admin.py --email admin@library.com --password Admin123 --name "Adm
 3. Test all features:
    - Books management (CRUD)
    - Members management
-   - Borrowings
+   - Borrowings (with status filter: All/Borrowed/Returned/Overdue)
    - Dashboard
    - Profile management
+
+## Email Reminders (Cron Job)
+
+The system includes an automated email reminder script that notifies members about:
+- Books due within the next day
+- Overdue books
+
+### Setup
+
+1. Configure email settings in `api-service/.env`:
+   ```bash
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   FROM_EMAIL=your-email@gmail.com
+   FROM_NAME=Neighborhood Library
+   REMINDER_DAYS_AHEAD=1
+   FINE_PER_DAY=1.0
+   ```
+
+2. Test the script:
+   ```bash
+   cd api-service
+   ./venv/bin/python email_reminder.py
+   ```
+
+3. Set up a cron job (runs daily at 9 AM):
+   ```bash
+   crontab -e
+   # Add this line:
+   0 9 * * * cd /path/to/api-service && /path/to/venv/bin/python email_reminder.py >> /var/log/library_reminder.log 2>&1
+   ```
 
 ## API Documentation
 

@@ -216,6 +216,12 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 .search-bar input:focus { outline: none; }
 .search-bar input::placeholder { color: var(--color-text-muted); }
 
+.filters-row { display: flex; gap: var(--space-md); margin-bottom: var(--space-xl); flex-wrap: wrap; }
+.filters-row .search-bar { flex: 1; min-width: 250px; margin-bottom: 0; }
+.status-filter select { padding: 0.75rem var(--space-lg); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: 0.9375rem; color: var(--color-text); cursor: pointer; min-width: 150px; transition: all var(--transition-fast); }
+.status-filter select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(26, 61, 46, 0.1); }
+.status-filter select:hover { border-color: var(--color-primary-light); }
+
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-2xl); text-align: center; color: var(--color-text-muted); }
 .empty-state svg { margin-bottom: var(--space-md); opacity: 0.5; }
 .empty-state h3 { font-size: 1.125rem; color: var(--color-text-secondary); margin-bottom: var(--space-xs); }
