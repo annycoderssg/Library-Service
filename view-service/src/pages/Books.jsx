@@ -179,8 +179,10 @@ export default function Books() {
                   <p className="book-author">by {book.author}</p>
                   {book.category && <span className="book-category">{book.category}</span>}
                   <div className="book-meta">
-                    <span className={`availability ${book.available_quantity > 0 ? 'available' : 'unavailable'}`}>
-                      {book.available_quantity > 0 ? `${book.available_quantity} available` : 'Not available'}
+                    <span className={`availability ${(book.available_copies || book.available_quantity) > 0 ? 'available' : 'unavailable'}`}>
+                      {(book.available_copies || book.available_quantity) > 0 
+                        ? `${book.available_copies || book.available_quantity} available` 
+                        : 'Not available'}
                     </span>
                   </div>
                 </div>

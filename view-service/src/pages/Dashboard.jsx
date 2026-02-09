@@ -24,7 +24,10 @@ export default function Dashboard() {
         borrowingsAPI.getAll({ limit: 5 }).catch(() => ({ data: [] }))
       ])
       
-      setStats(statsRes.data)
+      // API returns { stats: {...}, new_books: [...], recent_testimonials: [...] }
+      // Extract the stats object from the response
+      const dashboardData = statsRes.data
+      setStats(dashboardData?.stats || dashboardData)
       setRecentBorrowings(Array.isArray(borrowingsRes.data) ? borrowingsRes.data : borrowingsRes.data?.items || [])
     } catch (error) {
       console.error('Failed to load dashboard:', error)
