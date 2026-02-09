@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { testimonialsAPI } from '../api'
+import ConfirmModal from '../components/ConfirmModal'
 import { 
   MessageSquare, Plus, Edit2, Trash2, Star, 
   X, Check, AlertCircle, Quote 
@@ -18,6 +19,7 @@ export default function Testimonials() {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null })
 
   useEffect(() => {
     loadTestimonials()
@@ -72,17 +74,23 @@ export default function Testimonials() {
     }
   }
 
-  const handleDelete = async (testimonial) => {
-    if (!confirm('Are you sure you want to delete this testimonial?')) return
-    
-    try {
-      await testimonialsAPI.delete(testimonial.id)
-      setSuccess('Testimonial deleted successfully')
-      loadTestimonials()
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete testimonial')
-    }
+  const handleDelete = (testimonial) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Testimonial',
+      message: 'Are you sure you want to delete this testimonial? This action cannot be undone.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await testimonialsAPI.delete(testimonial.id)
+          setSuccess('Testimonial deleted successfully')
+          loadTestimonials()
+          setTimeout(() => setSuccess(''), 3000)
+        } catch (err) {
+          setError(err.response?.data?.detail || 'Failed to delete testimonial')
+        }
+      }
+    })
   }
 
   const canEdit = (testimonial) => {
@@ -223,6 +231,16 @@ export default function Testimonials() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText="Delete"
+      />
     </div>
   )
 }

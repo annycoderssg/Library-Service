@@ -33,7 +33,8 @@ export function AuthProvider({ children }) {
             id: profileData.user?.id || parsedUser.id,
             role: profileData.user?.role || parsedUser.role,
             email: profileData.user?.email || parsedUser.email,
-            name: profileData.member?.name || profileData.user?.email?.split('@')[0] || parsedUser.name
+            name: profileData.member?.name || profileData.user?.email?.split('@')[0] || parsedUser.name,
+            member_id: profileData.user?.member_id || profileData.member?.id || parsedUser.member_id
           }
           setUser(userData)
           localStorage.setItem('user', JSON.stringify(userData))
@@ -62,7 +63,8 @@ export function AuthProvider({ children }) {
       id: user_id,
       role: role,
       email: profileData.user?.email || email,
-      name: profileData.member?.name || profileData.user?.email?.split('@')[0] || 'User'
+      name: profileData.member?.name || profileData.user?.email?.split('@')[0] || 'User',
+      member_id: profileData.user?.member_id || profileData.member?.id
     }
     
     localStorage.setItem('user', JSON.stringify(userData))
@@ -77,12 +79,17 @@ export function AuthProvider({ children }) {
     
     localStorage.setItem('token', access_token)
     
-    // Build user object from signup data
+    // Fetch profile to get member_id
+    const profileRes = await authAPI.getProfile()
+    const profileData = profileRes.data
+    
+    // Build user object from signup data and profile
     const userData = {
       id: user_id,
       role: role,
       email: signupData.email,
-      name: signupData.name || signupData.email.split('@')[0]
+      name: signupData.name || signupData.email.split('@')[0],
+      member_id: profileData.user?.member_id || profileData.member?.id
     }
     
     localStorage.setItem('user', JSON.stringify(userData))

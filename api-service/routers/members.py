@@ -26,12 +26,29 @@ class PaginatedMembersResponse(BaseModel):
 
 
 @router.get("", response_model=PaginatedMembersResponse)
-def get_members(skip: int = 0, limit: int = None, db: Session = Depends(get_read_db)):
-    """Get all members with pagination"""
+def get_members(skip: int = 0, limit: int = None, search: Optional[str] = None, page: int = None, db: Session = Depends(get_read_db)):
+    """Get all members with pagination and search"""
     if limit is None:
         limit = DEFAULT_MEMBERS_PER_PAGE
-    total = db.query(func.count(Member.id)).scalar()
-    members = db.query(Member).offset(skip).limit(limit).all()
+    
+    # Handle page parameter (convert to skip)
+    if page is not None and page > 0:
+        skip = (page - 1) * limit
+    
+    # Build base query
+    query = db.query(Member)
+    
+    # Apply search filter if provided
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Member.name.ilike(search_term)) |
+            (Member.email.ilike(search_term)) |
+            (Member.phone.ilike(search_term))
+        )
+    
+    total = query.count()
+    members = query.offset(skip).limit(limit).all()
     
     # Add user role information to each member
     result = []

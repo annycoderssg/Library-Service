@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { membersAPI } from '../api'
+import ConfirmModal from '../components/ConfirmModal'
 import { 
   Users, Search, Plus, Edit2, Trash2, 
   ChevronLeft, ChevronRight, X, Check, AlertCircle, Mail, Phone 
@@ -21,6 +22,7 @@ export default function Members() {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null })
 
   const itemsPerPage = 10
 
@@ -96,17 +98,23 @@ export default function Members() {
     }
   }
 
-  const handleDelete = async (member) => {
-    if (!confirm(`Are you sure you want to delete "${member.name}"?`)) return
-    
-    try {
-      await membersAPI.delete(member.id)
-      setSuccess('Member deleted successfully')
-      loadMembers()
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete member')
-    }
+  const handleDelete = (member) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Member',
+      message: `Are you sure you want to delete "${member.name}"? This action cannot be undone.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await membersAPI.delete(member.id)
+          setSuccess('Member deleted successfully')
+          loadMembers()
+          setTimeout(() => setSuccess(''), 3000)
+        } catch (err) {
+          setError(err.response?.data?.detail || 'Failed to delete member')
+        }
+      }
+    })
   }
 
   return (
@@ -281,6 +289,16 @@ export default function Members() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText="Delete"
+      />
     </div>
   )
 }

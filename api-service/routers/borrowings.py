@@ -18,13 +18,26 @@ def get_borrowings(
     status_filter: Optional[str] = None,
     member_id: Optional[int] = None,
     book_id: Optional[int] = None,
+    current_user: User = Depends(get_current_member),
     db: Session = Depends(get_read_db)
 ):
-    """Get all borrowings with optional filters"""
+    """Get borrowings - members see only their own, admins see all"""
     query = db.query(Borrowing).options(
         joinedload(Borrowing.book),
         joinedload(Borrowing.member)
     )
+    
+    # Members can only see their own borrowings
+    if current_user.role == "member":
+        if current_user.member_id:
+            query = query.filter(Borrowing.member_id == current_user.member_id)
+        else:
+            # Member without member_id sees nothing
+            return []
+    else:
+        # Admins can filter by member_id if provided
+        if member_id:
+            query = query.filter(Borrowing.member_id == member_id)
     
     # Validate status_filter to prevent invalid values (defense in depth)
     if status_filter:
@@ -35,8 +48,6 @@ def get_borrowings(
                 detail=f"Invalid status_filter. Must be one of: {', '.join(valid_statuses)}"
             )
         query = query.filter(Borrowing.status == status_filter)
-    if member_id:
-        query = query.filter(Borrowing.member_id == member_id)
     if book_id:
         query = query.filter(Borrowing.book_id == book_id)
     

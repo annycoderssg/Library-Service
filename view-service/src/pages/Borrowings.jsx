@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { borrowingsAPI, booksAPI, membersAPI } from '../api'
+import ConfirmModal from '../components/ConfirmModal'
 import { 
   Calendar, Search, Plus, RotateCcw, Trash2, 
   ChevronLeft, ChevronRight, X, Check, AlertCircle, 
@@ -24,6 +25,7 @@ export default function Borrowings() {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'warning' })
 
   const isAdmin = user?.role === 'admin'
   const itemsPerPage = 10
@@ -107,31 +109,44 @@ export default function Borrowings() {
     }
   }
 
-  const handleReturn = async (borrowing) => {
-    if (!confirm('Mark this book as returned?')) return
-    
-    try {
-      await borrowingsAPI.returnBook(borrowing.id)
-      setSuccess('Book returned successfully')
-      loadBorrowings()
-      loadBooksAndMembers()
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to return book')
-    }
+  const handleReturn = (borrowing) => {
+    const bookTitle = borrowing.book_title || borrowing.book?.title || 'this book'
+    setConfirmModal({
+      isOpen: true,
+      title: 'Return Book',
+      message: `Mark "${bookTitle}" as returned?`,
+      type: 'info',
+      onConfirm: async () => {
+        try {
+          await borrowingsAPI.returnBook(borrowing.id)
+          setSuccess('Book returned successfully')
+          loadBorrowings()
+          loadBooksAndMembers()
+          setTimeout(() => setSuccess(''), 3000)
+        } catch (err) {
+          setError(err.response?.data?.detail || 'Failed to return book')
+        }
+      }
+    })
   }
 
-  const handleDelete = async (borrowing) => {
-    if (!confirm('Are you sure you want to delete this record?')) return
-    
-    try {
-      await borrowingsAPI.delete(borrowing.id)
-      setSuccess('Record deleted successfully')
-      loadBorrowings()
-      setTimeout(() => setSuccess(''), 3000)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete record')
-    }
+  const handleDelete = (borrowing) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Record',
+      message: 'Are you sure you want to delete this borrowing record? This action cannot be undone.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await borrowingsAPI.delete(borrowing.id)
+          setSuccess('Record deleted successfully')
+          loadBorrowings()
+          setTimeout(() => setSuccess(''), 3000)
+        } catch (err) {
+          setError(err.response?.data?.detail || 'Failed to delete record')
+        }
+      }
+    })
   }
 
   const isOverdue = (dueDate, returnDate) => {
@@ -203,7 +218,7 @@ export default function Borrowings() {
                   <th>Borrow Date</th>
                   <th>Due Date</th>
                   <th>Status</th>
-                  {isAdmin && <th>Actions</th>}
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,18 +234,19 @@ export default function Borrowings() {
                     <td>{new Date(borrowing.borrow_date || borrowing.created_at).toLocaleDateString()}</td>
                     <td>{new Date(borrowing.due_date).toLocaleDateString()}</td>
                     <td>{getStatusBadge(borrowing)}</td>
-                    {isAdmin && (
-                      <td>
-                        <div className="table-actions">
-                          {!borrowing.return_date && (
-                            <button 
-                              className="btn-icon btn-success" 
-                              onClick={() => handleReturn(borrowing)} 
-                              title="Mark as Returned"
-                            >
-                              <RotateCcw size={16} />
-                            </button>
-                          )}
+                    <td>
+                      <div className="table-actions">
+                        {/* Members can return their own books, admins can return any book */}
+                        {!borrowing.return_date && (isAdmin || borrowing.member_id === user?.member_id) && (
+                          <button 
+                            className="btn-icon btn-success" 
+                            onClick={() => handleReturn(borrowing)} 
+                            title="Mark as Returned"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                        )}
+                        {isAdmin && (
                           <button 
                             className="btn-icon btn-danger" 
                             onClick={() => handleDelete(borrowing)} 
@@ -238,9 +254,9 @@ export default function Borrowings() {
                           >
                             <Trash2 size={16} />
                           </button>
-                        </div>
-                      </td>
-                    )}
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -331,6 +347,16 @@ export default function Borrowings() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.type === 'danger' ? 'Delete' : 'Confirm'}
+      />
     </div>
   )
 }
