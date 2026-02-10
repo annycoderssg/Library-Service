@@ -4,7 +4,7 @@ import { booksAPI, borrowingsAPI } from '../api'
 import ConfirmModal from '../components/ConfirmModal'
 import {
     BookOpen, Search, Plus, Edit2, Trash2,
-    ChevronLeft, ChevronRight, X, Check, AlertCircle, BookMarked
+    ChevronLeft, ChevronRight, X, Check, AlertCircle, BookMarked, Calendar
 } from 'lucide-react'
 
 export default function Books() {
@@ -28,26 +28,34 @@ export default function Books() {
     const [success, setSuccess] = useState('')
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, type: 'warning' })
     const [borrowedBookIds, setBorrowedBookIds] = useState([])
+    const [showBorrowModal, setShowBorrowModal] = useState(false)
+    const [borrowingBook, setBorrowingBook] = useState(null)
+    const [borrowDueDate, setBorrowDueDate] = useState('')
 
     const isAdmin = user?.role === 'admin'
     const itemsPerPage = parseInt(import.meta.env.VITE_ITEMS_PER_PAGE) || 10
 
     useEffect(() => {
         loadBooks()
-        if (!isAdmin) {
+    }, [currentPage, searchTerm])
+
+    // Load user's active borrowings when user changes (for members only)
+    useEffect(() => {
+        if (user && user.role === 'member') {
             loadUserBorrowings()
         }
-    }, [currentPage, searchTerm])
+    }, [user])
 
     const loadUserBorrowings = async () => {
         try {
-            const response = await borrowingsAPI.getAll()
+            const response = await borrowingsAPI.getAll({ status_filter: 'borrowed' })
             const borrowings = Array.isArray(response.data) ? response.data : response.data?.items || []
-            // Get IDs of books that are currently borrowed (not returned)
+            // Get IDs of books that are currently borrowed (status = 'borrowed' and no return_date)
             const activeBorrowedIds = borrowings
-                .filter(b => !b.return_date)
+                .filter(b => b.status === 'borrowed' || !b.return_date)
                 .map(b => b.book_id)
             setBorrowedBookIds(activeBorrowedIds)
+            console.log('Active borrowed book IDs:', activeBorrowedIds) // Debug log
         } catch (error) {
             console.error('Failed to load borrowings:', error)
         }
@@ -162,31 +170,35 @@ export default function Books() {
     }
 
     const handleBorrow = (book) => {
+        // Set default due date from env (default 30 days)
+        const defaultBorrowDays = parseInt(import.meta.env.VITE_DEFAULT_BORROW_DAYS) || 30
         const dueDate = new Date()
-        dueDate.setDate(dueDate.getDate() + 14)
+        dueDate.setDate(dueDate.getDate() + defaultBorrowDays)
+        setBorrowDueDate(dueDate.toISOString().split('T')[0])
+        setBorrowingBook(book)
+        setShowBorrowModal(true)
+    }
 
-        setConfirmModal({
-            isOpen: true,
-            title: 'Borrow Book',
-            message: `Would you like to borrow "${book.title}"? Due date will be ${dueDate.toLocaleDateString()}.`,
-            type: 'info',
-            onConfirm: async () => {
-                try {
-                    await borrowingsAPI.create({
-                        book_id: book.id,
-                        due_date: dueDate.toISOString().split('T')[0]
-                    })
-                    setSuccess(`Successfully borrowed "${book.title}"! Due date: ${dueDate.toLocaleDateString()}`)
-                    // Add book to borrowed list to disable button
-                    setBorrowedBookIds(prev => [...prev, book.id])
-                    loadBooks()
-                    setTimeout(() => setSuccess(''), 5000)
-                } catch (err) {
-                    setError(err.response?.data?.detail || 'Failed to borrow book')
-                    setTimeout(() => setError(''), 5000)
-                }
-            }
-        })
+    const handleBorrowSubmit = async () => {
+        if (!borrowingBook) return
+
+        try {
+            await borrowingsAPI.create({
+                book_id: borrowingBook.id,
+                due_date: borrowDueDate
+            })
+            const formattedDate = new Date(borrowDueDate).toLocaleDateString()
+            setSuccess(`Successfully borrowed "${borrowingBook.title}"! Due date: ${formattedDate}`)
+            // Add book to borrowed list to disable button
+            setBorrowedBookIds(prev => [...prev, borrowingBook.id])
+            setShowBorrowModal(false)
+            setBorrowingBook(null)
+            loadBooks()
+            setTimeout(() => setSuccess(''), 5000)
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Failed to borrow book')
+            setTimeout(() => setError(''), 5000)
+        }
     }
 
     const isBookBorrowed = (bookId) => borrowedBookIds.includes(bookId)
@@ -384,6 +396,57 @@ export default function Books() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Borrow Book Modal */}
+            {showBorrowModal && borrowingBook && (
+                <div className="modal-overlay" onClick={() => setShowBorrowModal(false)}>
+                    <div className="modal borrow-modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2><BookMarked size={20} /> Borrow Book</h2>
+                            <button className="btn-icon" onClick={() => setShowBorrowModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="borrow-modal-content">
+                            <div className="book-details-card">
+                                <div className="book-details-icon">
+                                    <BookOpen size={40} />
+                                </div>
+                                <div className="book-details-info">
+                                    <h3>{borrowingBook.title}</h3>
+                                    <p className="book-author">by {borrowingBook.author}</p>
+                                    {borrowingBook.isbn && <p className="book-isbn">ISBN: {borrowingBook.isbn}</p>}
+                                    {borrowingBook.category && <span className="book-category">{borrowingBook.category}</span>}
+                                    <p className="book-availability">
+                                        Available: {(borrowingBook.total_copies || 1) - (borrowingBook.borrowing_count || 0)} / {borrowingBook.total_copies || 1} copies
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label><Calendar size={16} /> Return Date *</label>
+                                <input
+                                    type="date"
+                                    value={borrowDueDate}
+                                    onChange={(e) => setBorrowDueDate(e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    required
+                                />
+                                <small className="form-hint">Default: 30 days from today. You can change if needed.</small>
+                            </div>
+                        </div>
+                        <div className="modal-actions">
+                            <button className="btn btn-secondary" onClick={() => setShowBorrowModal(false)}>
+                                Cancel
+                            </button>
+                            <button className="btn btn-primary" onClick={handleBorrowSubmit}>
+                                <BookMarked size={16} />
+                                Confirm Borrow
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
